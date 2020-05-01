@@ -101,7 +101,8 @@ VkResult VulkanShaderManager::create_shader_from_file(const VkShaderStageFlagBit
     std::string shader_debug_marker_name = "Shader module '" + SPIRV_shader_file_name + "'.";
 
     // Give this shader an appropriate name.
-    debug_marker_manager->set_object_name(device, (std::uint64_t)(new_shader_module), VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, internal_shader_name.c_str());
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(new_shader_module), VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT,
+                                          internal_shader_name.c_str());
 
     // Store the generated shader in memory.
     new_shader->entry_name = shader_entry_point;
@@ -111,6 +112,48 @@ VkResult VulkanShaderManager::create_shader_from_file(const VkShaderStageFlagBit
 
     // Call template base class method.
     add_entry(internal_shader_name, new_shader);
+
+    return VK_SUCCESS;
+}
+
+VkResult VulkanShaderManager::create_shader_from_file(const VkShaderStageFlagBits &shader_type, std::shared_ptr<Shader> &new_shader,
+                                                      const std::string &SPIRV_shader_file_name, const std::string &internal_shader_name,
+                                                      const std::string &shader_entry_point) {
+    assert(device);
+    assert(debug_marker_manager);
+    assert(shader_manager_initialised);
+    assert(!SPIRV_shader_file_name.empty());
+
+    spdlog::debug("Creating shader '{}' from file.", SPIRV_shader_file_name.c_str());
+
+    new_shader = std::make_shared<Shader>();
+
+    // Load the fragment shader into memory.
+    new_shader->load_file(SPIRV_shader_file_name);
+
+    VkShaderModule new_shader_module;
+
+    // Create a Vulkan shader module.
+    VkResult result = create_shader_module(new_shader->get_file_data(), &new_shader_module);
+    if (result != VK_SUCCESS) {
+        vulkan_error_check(result);
+        return result;
+    }
+
+    std::string shader_debug_marker_name = "Shader module '" + SPIRV_shader_file_name + "'.";
+
+    // Give this shader an appropriate name.
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(new_shader_module), VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT,
+                                          internal_shader_name.c_str());
+
+    // Store the generated shader in memory.
+    new_shader->entry_name = shader_entry_point;
+    new_shader->name = internal_shader_name;
+    new_shader->type = shader_type;
+    new_shader->module = new_shader_module;
+
+    // TODO: Refactor shader manager! Use RAII instead!
+    // This will not be added to the global shader list!
 
     return VK_SUCCESS;
 }

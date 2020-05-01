@@ -620,6 +620,7 @@ VkResult Application::init() {
                                        gpu_queue_manager->get_data_transfer_queue());
     vulkan_error_check(result);
 
+    // Initialise imgui user interface library.
     result = create_imgui_overlay();
     vulkan_error_check(result);
 
@@ -743,6 +744,8 @@ void Application::run() {
         update_mouse_input();
 
         update_cameras();
+
+        update_imgui_overlay();
 
         time_passed = stopwatch.get_time_step();
     }

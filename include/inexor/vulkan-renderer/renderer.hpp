@@ -178,7 +178,7 @@ protected:
     VkPipelineCache pipeline_cache;
 
     // TODO: Read from TOML configuration file and pass value to core engine.
-    bool multisampling_enabled = true;
+    bool multisampling_enabled = false;
 
     VkSampleCountFlagBits multisampling_sample_count = VK_SAMPLE_COUNT_4_BIT;
 
@@ -266,6 +266,8 @@ protected:
 
     /// @brief Creates the frame buffers.
     VkResult create_frame_buffers();
+
+    VkResult update_imgui_overlay();
 
     /// @brief Creates a wrapper for imgui user interface library.
     VkResult create_imgui_overlay();

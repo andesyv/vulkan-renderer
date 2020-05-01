@@ -49,15 +49,14 @@ UIOverlay::UIOverlay() {
 
 UIOverlay::~UIOverlay() {}
 
-/** Prepare all vulkan resources required to render the UI overlay */
-void UIOverlay::prepareResources() {
+VkResult UIOverlay::prepareResources() {
     ImGuiIO &io = ImGui::GetIO();
 
     // Create font texture
     unsigned char *fontData;
     int texWidth, texHeight;
 
-    io.Fonts->AddFontFromFileTTF("./../data/Roboto-Medium.ttf", 16.0f);
+    io.Fonts->AddFontFromFileTTF("assets/fonts/vegur/vegur.otf", 16.0f);
     io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
     VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
 
@@ -69,8 +68,40 @@ void UIOverlay::prepareResources() {
     imgui_texture->height = texHeight;
     imgui_texture->mip_levels = 1;
 
-    result = texture_manager->create_texture_from_memory("imgui_overlay", &fontData, uploadSize, imgui_texture);
+    // TODO: Does this work like that?
+    result = texture_manager->create_texture_from_memory("imgui_overlay", fontData, uploadSize, imgui_texture);
     vulkan_error_check(result);
+
+    VkPipelineShaderStageCreateInfo shader_stage_create_info = {};
+
+    // Load imgui shaders.
+    result =
+        shader_manager->create_shader_from_file(VK_SHADER_STAGE_VERTEX_BIT, imgui_vertex_shader, "shaders/imgui/ui.vert.spv", "imgui_vertex_shader", "main");
+    vulkan_error_check(result);
+
+    shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stage_create_info.pNext = nullptr;
+    shader_stage_create_info.flags = 0;
+    shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stage_create_info.module = imgui_vertex_shader->module;
+    shader_stage_create_info.pName = imgui_vertex_shader->entry_name.c_str();
+    shader_stage_create_info.pSpecializationInfo = nullptr;
+
+    shaders.push_back(shader_stage_create_info);
+
+    result = shader_manager->create_shader_from_file(VK_SHADER_STAGE_FRAGMENT_BIT, imgui_fragment_shader, "shaders/imgui/ui.frag.spv", "imgui_fragment_shader",
+                                                     "main");
+    vulkan_error_check(result);
+
+    shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stage_create_info.pNext = nullptr;
+    shader_stage_create_info.flags = 0;
+    shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stage_create_info.module = imgui_fragment_shader->module;
+    shader_stage_create_info.pName = imgui_fragment_shader->entry_name.c_str();
+    shader_stage_create_info.pSpecializationInfo = nullptr;
+
+    shaders.push_back(shader_stage_create_info);
 
     // Descriptor pool
     std::vector<VkDescriptorPoolSize> poolSizes = {vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)};
@@ -102,10 +133,11 @@ void UIOverlay::prepareResources() {
         vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &fontDescriptor)};
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+    return VK_SUCCESS;
 }
 
-/** Prepare a separate pipeline for the UI overlay rendering decoupled from the main application */
-void UIOverlay::preparePipeline(const VkPipelineCache pipelineCache, const VkRenderPass renderPass) {
+VkResult UIOverlay::preparePipeline(const VkPipelineCache pipelineCache, const VkRenderPass renderPass) {
     // Pipeline layout
     // Push constants for UI rendering parameters
     VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(PushConstBlock), 0);
@@ -176,9 +208,10 @@ void UIOverlay::preparePipeline(const VkPipelineCache pipelineCache, const VkRen
 
     result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline);
     vulkan_error_check(result);
+
+    return VK_SUCCESS;
 }
 
-/** Update vertex and index buffer containing the imGui elements when required */
 bool UIOverlay::update() {
     ImDrawData *imDrawData = ImGui::GetDrawData();
     bool updateCmdBuffers = false;
@@ -252,13 +285,13 @@ bool UIOverlay::update() {
     return updateCmdBuffers;
 }
 
-void UIOverlay::draw(const VkCommandBuffer commandBuffer) {
+VkResult UIOverlay::draw(const VkCommandBuffer commandBuffer) {
     ImDrawData *imDrawData = ImGui::GetDrawData();
     int32_t vertexOffset = 0;
     int32_t indexOffset = 0;
 
     if ((!imDrawData) || (imDrawData->CmdListsCount == 0)) {
-        return;
+        return VK_SUCCESS;
     }
 
     ImGuiIO &io = ImGui::GetIO();
@@ -289,20 +322,25 @@ void UIOverlay::draw(const VkCommandBuffer commandBuffer) {
         }
         vertexOffset += cmd_list->VtxBuffer.Size;
     }
+    return VK_SUCCESS;
 }
 
-void UIOverlay::resize(uint32_t width, uint32_t height) {
+VkResult UIOverlay::resize(uint32_t width, uint32_t height) {
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)(width), (float)(height));
+
+    return VK_SUCCESS;
 }
 
-void UIOverlay::freeResources() {
+VkResult UIOverlay::freeResources() {
     ImGui::DestroyContext();
     // Other resources will be shut down by manager classes!
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyPipeline(device, pipeline, nullptr);
+
+    return VK_SUCCESS;
 }
 
 bool UIOverlay::header(const char *caption) {

@@ -26,15 +26,11 @@
 namespace inexor::vulkan_renderer {
 class UIOverlay {
     VkDevice device;
-    VkQueue queue;
     VkResult result;
 
     VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     uint32_t subpass = 0;
 
-    // vks::Buffer vertexBuffer;
-    // vks::Buffer indexBuffer;
-    // TODO: Evaluate!
     std::shared_ptr<MeshBuffer> vertex_buffer;
     std::shared_ptr<MeshBuffer> index_buffer;
 
@@ -55,8 +51,6 @@ class UIOverlay {
     } pushConstBlock;
 
     bool visible = true;
-    bool updated = false;
-    float scale = 1.0f;
 
     bool imgui_overlay_initialised = false;
 
@@ -66,21 +60,32 @@ class UIOverlay {
 
     std::shared_ptr<Texture> imgui_texture;
 
+    std::shared_ptr<Shader> imgui_vertex_shader;
+    std::shared_ptr<Shader> imgui_fragment_shader;
+
 public:
+    // TODO: Sort public/private!
+    float scale = 1.0f;
+    bool updated = false;
+
     UIOverlay();
     ~UIOverlay();
 
     VkResult init(VkDevice &device, std::shared_ptr<VulkanTextureManager> texture_manager, std::shared_ptr<MeshBufferManager> mesh_buffer_manager,
                   std::shared_ptr<VulkanShaderManager> shader_manager);
 
-    void preparePipeline(const VkPipelineCache pipelineCache, const VkRenderPass renderPass);
-    void prepareResources();
+    /// @brief Prepare a separate pipeline for the UI overlay rendering decoupled from the main application.
+    VkResult preparePipeline(const VkPipelineCache pipelineCache, const VkRenderPass renderPass);
 
+    /// @brief Prepare all vulkan resources required to render the UI overlay.
+    VkResult prepareResources();
+
+    /// @brief Update vertex and index buffer containing the imGui elements when required.
     bool update();
-    void draw(const VkCommandBuffer commandBuffer);
-    void resize(uint32_t width, uint32_t height);
+    VkResult draw(const VkCommandBuffer commandBuffer);
+    VkResult resize(uint32_t width, uint32_t height);
 
-    void freeResources();
+    VkResult freeResources();
 
     bool header(const char *caption);
     bool checkBox(const char *caption, bool *value);

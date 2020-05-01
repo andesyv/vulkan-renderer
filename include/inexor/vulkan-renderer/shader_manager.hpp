@@ -61,6 +61,10 @@ public:
     VkResult create_shader_from_file(const VkShaderStageFlagBits &shader_type, const std::string &SPIRV_shader_file_name,
                                      const std::string &internal_shader_name, const std::string &shader_entry_point);
 
+    // TODO: Document!
+    VkResult create_shader_from_file(const VkShaderStageFlagBits &shader_type, std::shared_ptr<Shader> &new_shader, const std::string &SPIRV_shader_file_name,
+                                     const std::string &internal_shader_name, const std::string &shader_entry_point);
+
     /// @brief Returns all the shaders which have been loaded.
     /// @return A const vector of InexorVulkanShader instances.
     std::vector<std::shared_ptr<Shader>> get_all_shaders();

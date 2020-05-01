@@ -526,7 +526,8 @@ VkResult VulkanRenderer::record_command_buffers() {
             // TODO: This does not specify the order of rendering!
             // gltf_model_manager->render_all_models(command_buffers[i], pipeline_layout, i);
 
-            // TODO: Draw imgui user interface.
+            // Draw imgui user interface on top of rendered image.
+            imgui_overlay->draw(command_buffers[i]);
         }
         // End of render pass.
         // ----------------------------------------------------------------------------------------------------------------
@@ -1004,6 +1005,8 @@ VkResult VulkanRenderer::recreate_swapchain() {
 
     result = create_frame_buffers();
     vulkan_error_check(result);
+
+    imgui_overlay->resize(window_width, window_height);
 
     vkDeviceWaitIdle(device);
 
@@ -1738,8 +1741,60 @@ VkResult VulkanRenderer::create_frame_buffers() {
     return VK_SUCCESS;
 }
 
+VkResult VulkanRenderer::update_imgui_overlay() {
+    ImGuiIO &io = ImGui::GetIO();
+
+    io.DisplaySize = ImVec2((float)window_width, (float)window_height);
+
+    // TODO: Does that work? We can't just pass time_passed since it's 0 in the beginning and imgui doesn't accept that.
+    io.DeltaTime = std::clamp(time_passed, 0.001f, 100.0f);
+
+    double current_cursor_x;
+    double current_cursor_y;
+
+    glfwGetCursorPos(window, &current_cursor_x, &current_cursor_y);
+
+    io.MousePos = ImVec2(static_cast<float>(current_cursor_x), static_cast<float>(current_cursor_y));
+    io.MouseDown[0] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
+    io.MouseDown[1] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+
+    ImGui::NewFrame();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::SetNextWindowPos(ImVec2(10, 10));
+    ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Vulkan Example", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+    ImGui::TextUnformatted("Insert fancy title here");
+    ImGui::TextUnformatted("Insert fancy GPU name here");
+    ImGui::Text("%.2f ms/frame (%.1d fps)", 133.0f, 101);
+
+    ImGui::PushItemWidth(110.0f * imgui_overlay->scale);
+    // OnUpdateUIOverlay(&UIOverlay);
+    ImGui::PopItemWidth();
+
+    ImGui::End();
+    ImGui::PopStyleVar();
+    ImGui::Render();
+
+    if (imgui_overlay->update() || imgui_overlay->updated) {
+        record_command_buffers();
+        imgui_overlay->updated = false;
+    }
+
+    return VK_SUCCESS;
+}
+
 VkResult VulkanRenderer::create_imgui_overlay() {
-    // TODO: Implement!
+
+    VkResult result = imgui_overlay->init(device, texture_manager, mesh_buffer_manager, shader_manager);
+    vulkan_error_check(result);
+
+    result = imgui_overlay->prepareResources();
+    vulkan_error_check(result);
+
+    result = imgui_overlay->preparePipeline(pipeline_cache, render_pass);
+    vulkan_error_check(result);
+
     return VK_SUCCESS;
 }
 
