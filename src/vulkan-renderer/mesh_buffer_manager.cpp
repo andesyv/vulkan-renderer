@@ -268,6 +268,212 @@ VkResult MeshBufferManager::create_vertex_buffer(const std::string &internal_mes
     return VK_SUCCESS;
 }
 
+VkResult MeshBufferManager::create_vertex_buffer(const std::string &internal_mesh_buffer_name, const std::size_t vertex_buffer_size,
+                                                 std::shared_ptr<MeshBuffer> &output_mesh_buffer) {
+
+    assert(mesh_buffer_manager_initialised);
+    assert(vertex_buffer_size > 0);
+    assert(!internal_mesh_buffer_name.empty());
+
+    spdlog::debug("Creating new vertex buffer '{}' of size {}.", internal_mesh_buffer_name, vertex_buffer_size);
+
+    spdlog::warn("This vertex buffer doesn't have an associated index buffer!");
+    spdlog::warn("Using index buffers can improve performance significantly!");
+
+    // Check if a mesh buffer with this name does already exist.
+    if (does_key_exist(internal_mesh_buffer_name)) {
+        spdlog::debug("A mesh buffer with the name '{}' does already exist!", internal_mesh_buffer_name);
+        output_mesh_buffer = nullptr;
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    spdlog::debug("Creating vertex buffer.");
+
+    Buffer vertex_buffer;
+
+    VkResult result = create_buffer(internal_mesh_buffer_name, vertex_buffer, vertex_buffer_size,
+                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    if (result != VK_SUCCESS) {
+        vulkan_error_check(result);
+        return result;
+    }
+
+    std::string vertex_buffer_name = "Vertex buffer '" + internal_mesh_buffer_name + "'";
+
+    // Give this vertex buffer an appropriate name.
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(vertex_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, vertex_buffer_name.c_str());
+
+    std::shared_ptr<MeshBuffer> new_mesh_buffer = std::make_shared<MeshBuffer>();
+
+    // Store the vertex buffer.
+    new_mesh_buffer->vertex_buffer = vertex_buffer;
+
+    // Yes, there is an index buffer available!
+    new_mesh_buffer->index_buffer_available = false;
+
+    // We didn't fill in any vertices yet!
+    new_mesh_buffer->number_of_vertices = 0;
+
+    // Store the internal description of this buffer.
+    new_mesh_buffer->description = internal_mesh_buffer_name;
+
+    output_mesh_buffer = new_mesh_buffer;
+
+    // add_entry(internal_mesh_buffer_name, new_mesh_buffer);
+
+    spdlog::debug("Destroying staging vertex buffer.");
+
+    return VK_SUCCESS;
+}
+
+VkResult MeshBufferManager::create_index_buffer(const std::string &internal_mesh_buffer_name, const void *indices, const std::size_t size_of_index_structure,
+                                                const std::size_t number_of_indices, std::shared_ptr<MeshBuffer> &output_mesh_buffer) {
+    assert(mesh_buffer_manager_initialised);
+    assert(size_of_index_structure > 0);
+    assert(number_of_indices > 0);
+    assert(!internal_mesh_buffer_name.empty());
+    assert(indices);
+
+    Buffer index_buffer;
+
+    Buffer staging_index_buffer;
+
+    std::size_t index_buffer_size = size_of_index_structure * number_of_indices;
+
+    std::string index_buffer_name = "Index buffer '" + internal_mesh_buffer_name + "'.";
+
+    VkResult result = create_buffer(internal_mesh_buffer_name, index_buffer, index_buffer_size,
+                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    if (result != VK_SUCCESS) {
+        vulkan_error_check(result);
+        return result;
+    }
+
+    //
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(staging_index_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                          index_buffer_name.c_str());
+
+    spdlog::debug("Specifying copy region of staging index buffer for {}", internal_mesh_buffer_name);
+
+    VkBufferCopy index_buffer_copy_region = {};
+
+    index_buffer_copy_region.srcOffset = 0;
+    index_buffer_copy_region.dstOffset = 0;
+    index_buffer_copy_region.size = index_buffer.create_info.size;
+
+    // It should be noted that it is more efficient to use queues which are specifically designed for this task.
+    // We need to look for queues which have VK_QUEUE_TRANSFER_BIT, but not VK_QUEUE_GRAPHICS_BIT!
+    // In some talks about Vulkan it was mentioned that not using dedicated transfer queues is one of the biggest mistakes when using Vulkan.
+    // Copy vertex data from staging buffer to vertex buffer to upload it to GPU memory!
+
+    VkCommandBufferBeginInfo cmd_buffer_begin_info;
+
+    cmd_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmd_buffer_begin_info.pNext = nullptr;
+    cmd_buffer_begin_info.pInheritanceInfo = nullptr;
+
+    // We’re only going to use the command buffer once and wait with returning from the function until
+    // the copy operation has finished executing. It’s good practice to tell the driver about our intent
+    // using VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.
+    cmd_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    spdlog::debug("Beginning command buffer recording for copy commands.");
+
+    result = vkBeginCommandBuffer(data_transfer_command_buffer, &cmd_buffer_begin_info);
+    vulkan_error_check(result);
+
+    spdlog::debug("Specifying index buffer copy operation in command buffer.");
+
+    vkCmdCopyBuffer(data_transfer_command_buffer, staging_index_buffer.buffer, index_buffer.buffer, 1, &index_buffer_copy_region);
+
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(index_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, index_buffer_name.c_str());
+
+    spdlog::debug("Ending command buffer recording for copy commands.");
+
+    // End command buffer recording.
+    result = vkEndCommandBuffer(data_transfer_command_buffer);
+    if (result != VK_SUCCESS) {
+        vulkan_error_check(result);
+        return result;
+    }
+
+    // Submit buffer copy command to data transfer queue.
+    upload_data_to_gpu();
+
+    spdlog::debug("Storing mesh buffer in output.");
+
+    std::shared_ptr<MeshBuffer> new_mesh_buffer = std::make_shared<MeshBuffer>();
+
+    // Yes, there is an index buffer available!
+    new_mesh_buffer->index_buffer_available = true;
+
+    // Store the index buffer.
+    new_mesh_buffer->index_buffer = index_buffer;
+
+    // Store the number of vertices and indices.
+    new_mesh_buffer->number_of_indices = static_cast<std::uint32_t>(number_of_indices);
+
+    // Store the internal description of this buffer.
+    new_mesh_buffer->description = internal_mesh_buffer_name;
+
+    // TODO: Store output or not?
+
+    // TODO: Should we implement update_entry in a way so it creates an entry if not existent?
+    add_entry(internal_mesh_buffer_name, new_mesh_buffer);
+
+    spdlog::debug("Destroying staging index buffer.");
+
+    // Destroy staging buffer.
+    vmaDestroyBuffer(vma_allocator, staging_index_buffer.buffer, staging_index_buffer.allocation);
+
+    return VK_SUCCESS;
+}
+
+VkResult MeshBufferManager::create_index_buffer(const std::string &internal_mesh_buffer_name, const std::size_t size_of_indices,
+                                                std::shared_ptr<MeshBuffer> &output_mesh_buffer) {
+    assert(mesh_buffer_manager_initialised);
+    assert(size_of_indices > 0);
+    assert(!internal_mesh_buffer_name.empty());
+
+    Buffer index_buffer;
+
+    Buffer staging_index_buffer;
+
+    std::string index_buffer_name = "Index buffer '" + internal_mesh_buffer_name + "'.";
+
+    // TODO: Should we mark transfer destination at this point? We're not filling in any data currently!
+    VkResult result = create_buffer(internal_mesh_buffer_name, index_buffer, size_of_indices,
+                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    if (result != VK_SUCCESS) {
+        vulkan_error_check(result);
+        return result;
+    }
+
+    output_mesh_buffer = std::make_shared<MeshBuffer>();
+
+    // Yes, there is an index buffer available!
+    output_mesh_buffer->index_buffer_available = true;
+
+    // Store the index buffer.
+    output_mesh_buffer->index_buffer = index_buffer;
+
+    // We didn't fill in any indices yet!
+    output_mesh_buffer->number_of_indices = 0;
+
+    // Store the internal description of this buffer.
+    output_mesh_buffer->description = internal_mesh_buffer_name;
+
+    // TODO: Should we implement update_entry in a way so it creates an entry if not existent?
+    // add_entry(internal_mesh_buffer_name, new_mesh_buffer);
+
+    spdlog::debug("Destroying staging index buffer.");
+
+    // Destroy staging buffer.
+    vmaDestroyBuffer(vma_allocator, staging_index_buffer.buffer, staging_index_buffer.allocation);
+
+    return VK_SUCCESS;
+}
+
 VkResult MeshBufferManager::create_vertex_buffer_with_index_buffer(const std::string &internal_mesh_buffer_name, const void *vertices,
                                                                    const std::size_t size_of_vertex_structure, const std::size_t number_of_vertices,
                                                                    const void *indices, const std::size_t size_of_index_structure,
@@ -362,7 +568,8 @@ VkResult MeshBufferManager::create_vertex_buffer_with_index_buffer(const std::st
     }
 
     //
-    debug_marker_manager->set_object_name(device, (std::uint64_t)(staging_vertex_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, vertex_buffer_name.c_str());
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(staging_vertex_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                          vertex_buffer_name.c_str());
 
     Buffer index_buffer;
 
@@ -376,7 +583,8 @@ VkResult MeshBufferManager::create_vertex_buffer_with_index_buffer(const std::st
     }
 
     //
-    debug_marker_manager->set_object_name(device, (std::uint64_t)(staging_index_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, index_buffer_name.c_str());
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(staging_index_buffer.buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                          index_buffer_name.c_str());
 
     spdlog::debug("Specifying copy region of staging vertex buffer for {}.", internal_mesh_buffer_name);
 

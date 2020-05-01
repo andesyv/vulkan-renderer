@@ -27,7 +27,8 @@
 namespace inexor::vulkan_renderer {
 
 VkResult VulkanRenderer::create_vulkan_instance(const std::string &application_name, const std::string &engine_name, const std::uint32_t application_version,
-                                                const std::uint32_t engine_version, bool enable_validation_instance_layers, bool enable_renderdoc_instance_layer) {
+                                                const std::uint32_t engine_version, bool enable_validation_instance_layers,
+                                                bool enable_renderdoc_instance_layer) {
     assert(!application_name.empty());
     assert(!engine_name.empty());
 
@@ -353,7 +354,8 @@ VkResult VulkanRenderer::create_depth_buffer() {
     vulkan_error_check(result);
 
     // Give this buffer image view an appropriate name.
-    debug_marker_manager->set_object_name(device, (std::uint64_t)(depth_buffer.image_view), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, "Depth buffer image view.");
+    debug_marker_manager->set_object_name(device, (std::uint64_t)(depth_buffer.image_view), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT,
+                                          "Depth buffer image view.");
 
     return VK_SUCCESS;
 }
@@ -1729,9 +1731,15 @@ VkResult VulkanRenderer::create_frame_buffers() {
         std::string frame_buffer_name = "Frame buffer #" + std::to_string(i) + ".";
 
         // Use Vulkan debug markers to assign an appropriate name to this frame buffer.
-        debug_marker_manager->set_object_name(device, (std::uint64_t)(frame_buffers[i]), VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT, frame_buffer_name.c_str());
+        debug_marker_manager->set_object_name(device, (std::uint64_t)(frame_buffers[i]), VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT,
+                                              frame_buffer_name.c_str());
     }
 
+    return VK_SUCCESS;
+}
+
+VkResult VulkanRenderer::create_imgui_overlay() {
+    // TODO: Implement!
     return VK_SUCCESS;
 }
 

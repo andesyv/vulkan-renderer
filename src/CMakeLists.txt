@@ -39,6 +39,8 @@ add_library(
 
     vulkan-renderer/world/bit_stream.cpp
     vulkan-renderer/world/cube.cpp
+	
+    vulkan-renderer/imgui/imgui_overlay.cpp
 )
 
 add_dependencies(inexor-vulkan-renderer inexor-shaders)

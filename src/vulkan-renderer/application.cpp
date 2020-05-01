@@ -25,7 +25,7 @@ VkResult Application::load_toml_configuration_file(const std::string &file_name)
         spdlog::error("Could not open configuration file: '{}'!", file_name);
         return VK_ERROR_INITIALIZATION_FAILED;
     }
-    
+
     toml_file.close();
 
     // Load the TOML file using toml11.
@@ -52,7 +52,7 @@ VkResult Application::load_toml_configuration_file(const std::string &file_name)
 
     // Generate an std::uint32_t value from the major, minor and patch version info.
     application_version = VK_MAKE_VERSION(application_version_major, application_version_minor, application_version_patch);
-    
+
     int engine_version_major = toml::find<int>(renderer_configuration, "application", "engine", "version", "major");
     int engine_version_minor = toml::find<int>(renderer_configuration, "application", "engine", "version", "minor");
     int engine_version_patch = toml::find<int>(renderer_configuration, "application", "engine", "version", "patch");
@@ -618,6 +618,9 @@ VkResult Application::init() {
 
     result = mesh_buffer_manager->init(device, debug_marker_manager, vma_allocator, gpu_queue_manager->get_data_transfer_queue_family_index().value(),
                                        gpu_queue_manager->get_data_transfer_queue());
+    vulkan_error_check(result);
+
+    result = create_imgui_overlay();
     vulkan_error_check(result);
 
     result = create_command_pool();

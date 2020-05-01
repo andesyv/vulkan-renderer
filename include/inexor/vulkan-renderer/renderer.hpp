@@ -12,6 +12,7 @@
 #include "inexor/vulkan-renderer/gpu_info.hpp"
 #include "inexor/vulkan-renderer/gpu_queue_manager.hpp"
 #include "inexor/vulkan-renderer/image_buffer.hpp"
+#include "inexor/vulkan-renderer/imgui/imgui_overlay.hpp"
 #include "inexor/vulkan-renderer/mesh_buffer.hpp"
 #include "inexor/vulkan-renderer/mesh_buffer_manager.hpp"
 #include "inexor/vulkan-renderer/msaa_target.hpp"
@@ -91,6 +92,8 @@ protected:
     std::shared_ptr<AvailabilityChecksManager> availability_checks_manager = std::make_shared<AvailabilityChecksManager>();
 
     std::shared_ptr<VulkanSettingsDecisionMaker> settings_decision_maker = std::make_shared<VulkanSettingsDecisionMaker>();
+
+    std::shared_ptr<UIOverlay> imgui_overlay = std::make_shared<UIOverlay>();
 
     VmaAllocator vma_allocator;
 
@@ -201,7 +204,8 @@ protected:
     /// @param engine_version The version of the engine encoded as an unsigned 32 bit integer.
     /// @param enable_validation_layers True if validation is enabled.
     VkResult create_vulkan_instance(const std::string &application_name, const std::string &engine_name, const std::uint32_t application_version,
-                                    const std::uint32_t engine_version, bool enable_validation_instance_layers = true, bool enable_renderdoc_instance_layer = false);
+                                    const std::uint32_t engine_version, bool enable_validation_instance_layers = true,
+                                    bool enable_renderdoc_instance_layer = false);
 
     /// @brief Create a window surface.
     /// @param vulkan_instance The instance of Vulkan.
@@ -262,6 +266,9 @@ protected:
 
     /// @brief Creates the frame buffers.
     VkResult create_frame_buffers();
+
+    /// @brief Creates a wrapper for imgui user interface library.
+    VkResult create_imgui_overlay();
 
     /// @brief Creates the rendering pipeline.
     VkResult create_pipeline();
