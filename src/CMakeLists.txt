@@ -10,6 +10,7 @@ add_library(
     vulkan-renderer/descriptor.cpp
     vulkan-renderer/error_handling.cpp
     vulkan-renderer/fps_counter.cpp
+    vulkan-renderer/frame_graph.cpp
     vulkan-renderer/gpu_info.cpp
     vulkan-renderer/gpu_memory_buffer.cpp
     vulkan-renderer/mesh_buffer.cpp
