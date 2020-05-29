@@ -5,7 +5,7 @@
 #include "inexor/vulkan-renderer/octree_vertex.hpp"
 #include "inexor/vulkan-renderer/standard_ubo.hpp"
 #include "inexor/vulkan-renderer/tools/cla_parser.hpp"
-#include "inexor/vulkan-renderer/world/cube.hpp"
+#include "inexor/vulkan-renderer/world/old_cube.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <spdlog/spdlog.h>

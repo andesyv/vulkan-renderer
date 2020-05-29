@@ -14,7 +14,9 @@ private:
 
 public:
     Indentation() = default;
+    Indentation(const Indentation &rhs) = default;
     Indentation(std::uint8_t start, std::uint8_t end) noexcept;
+    bool operator==(Indentation const &rhs) const;
 
     void set_start(std::uint8_t position) noexcept;
     void set_end(std::uint8_t position) noexcept;
