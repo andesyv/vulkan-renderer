@@ -44,7 +44,9 @@ add_library(
     vulkan-renderer/wrapper/window_surface.cpp
 
     vulkan-renderer/world/bit_stream.cpp
+    vulkan-renderer/world/old_cube.cpp
     vulkan-renderer/world/cube.cpp
+    vulkan-renderer/world/indentation.cpp
 )
 
 add_dependencies(inexor-vulkan-renderer inexor-shaders)
