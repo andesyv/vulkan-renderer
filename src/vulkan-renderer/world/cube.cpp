@@ -132,6 +132,14 @@ std::array<Indentation, 12> Cube::indentations() const noexcept {
     return this->m_indentations;
 }
 
+void Cube::set_indent(const std::uint8_t edge_id, Indentation indentation) {
+    if (this->m_type != Type::NORMAL) {
+        return;
+    }
+    assert(edge_id >= 0 && edge_id <= Indentation::MAX);
+    this->m_indentations[edge_id] = std::move(indentation);
+}
+
 void Cube::indent(const std::uint8_t edge_id, const bool positive_direction, const std::uint8_t steps) {
     if (this->m_type != Type::NORMAL) {
         return;

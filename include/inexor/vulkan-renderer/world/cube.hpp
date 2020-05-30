@@ -40,9 +40,9 @@ private:
 public:
     Cube() = default;
     /// Not implemented.
-    Cube(const Cube &) = delete;
+    Cube(const Cube &rhs) = delete;
     /// Not implemented.
-    Cube &operator=(Cube const &) = delete;
+    Cube &operator=(Cube const &rhs) = delete;
     Cube(std::shared_ptr<Cube> parent, const Type type, const float size, const glm::vec3 &position);
     ~Cube();
 
@@ -52,9 +52,10 @@ public:
     void set_type(const Type new_type);
     [[nodiscard]] Type type() const noexcept;
 
-    [[nodiscard]] std::array<Indentation, Cube::EDGES> indentations() const noexcept;
     [[nodiscard]] std::array<std::weak_ptr<Cube>, Cube::SUB_CUBES> childs() const;
+    [[nodiscard]] std::array<Indentation, Cube::EDGES> indentations() const noexcept;
 
+    void set_indent(const std::uint8_t edge_id, Indentation indentation);
     void indent(const std::uint8_t edge_id, const bool positive_direction, const std::uint8_t steps);
     /// Short for childs(), weak_ptr checking and set_type().
     void set_sub_cube_type(const std::uint8_t cube_id, const Type new_type);
